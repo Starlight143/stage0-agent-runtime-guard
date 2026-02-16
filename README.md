@@ -91,7 +91,9 @@ Result: Agent produces research report constrained to informational content.
 ### Prerequisites
 
 - Python 3.10 or higher
-- Stage0 API key from SignalPulse
+- Stage0 API key from [SignalPulse](https://signalpulse.org/)
+
+> **Get your API key**: Visit [signalpulse.org](https://signalpulse.org/) to register and obtain your Stage0 API key. The API key is required to use the runtime guard functionality.
 
 ### Setup
 
