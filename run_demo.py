@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-"""Main demo runner for stage0-agent-runtime-guard.
+"""Main demo runner for stage0-agent-runtime-guard."""
 
-This script runs both demos to show the contrast between
-unguarded and guarded agent execution.
-"""
-
+import argparse
 import os
 import sys
 from pathlib import Path
 
-# Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
+
+from demo.scenarios import DEFAULT_SCENARIO_KEY, get_scenario, list_scenarios
 
 
 def print_header(title: str):
@@ -34,101 +32,129 @@ def print_section(title: str):
     print()
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    scenario_choices = ["all"] + [scenario.key for scenario in list_scenarios()]
+    parser = argparse.ArgumentParser(
+        description="Run the Stage0 runtime guard demo in interactive or non-interactive mode."
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=scenario_choices,
+        default=DEFAULT_SCENARIO_KEY,
+        help="Scenario to run. Use 'all' to run every customer-facing scenario.",
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Run without pause prompts so the demo works in CI, recordings, and scripted tests.",
+    )
+    return parser.parse_args()
+
+
 def check_setup():
     """Check if the environment is properly set up."""
     issues = []
-    
-    # Check for .env file
+
     env_file = Path(__file__).parent / ".env"
     if not env_file.exists():
         issues.append(".env file not found. Copy .env.example to .env")
-    
-    # Check for API key
+
     load_dotenv()
     api_key = os.getenv("STAGE0_API_KEY")
     if not api_key or api_key == "your_api_key_here":
         issues.append("STAGE0_API_KEY not configured in .env")
-    
+
     return issues
+
+
+def pause(prompt: str, auto: bool) -> None:
+    """Pause unless auto mode is enabled."""
+    if auto:
+        return
+    input(prompt)
+
+
+def run_single_scenario(scenario_key: str, auto: bool) -> None:
+    """Run the guarded and unguarded demos for a single scenario."""
+    scenario = get_scenario(scenario_key)
+
+    print_section(f"SCENARIO: {scenario.title}")
+    print(f"Goal: {scenario.goal}")
+    print(f"Why buyers care: {scenario.why_it_matters}")
+    print()
+
+    print_section("DEMO 1: Agent WITHOUT Stage0 Runtime Guard")
+    from demo.without_stage0 import main as run_without_stage0
+
+    run_without_stage0(scenario_key=scenario_key)
+
+    pause("Press Enter to continue to the guarded demo...", auto)
+
+    print_section("DEMO 2: Agent WITH Stage0 Runtime Guard")
+    from demo.with_stage0 import main as run_with_stage0
+
+    run_with_stage0(scenario_key=scenario_key)
+
+    print_section("SCENARIO OUTCOME")
+    print(f"Unguarded risk: {scenario.unguarded_risk}")
+    print(f"Guarded outcome: {scenario.guarded_outcome}")
+    print()
+
+
+def print_portfolio_summary(selected_scenarios: list[str]) -> None:
+    """Print a final summary across scenarios."""
+    print_section("WHY THIS ATTRACTS CUSTOMERS")
+    print("Stage0 becomes easier to sell when buyers can see the same product solve:")
+    for scenario_key in selected_scenarios:
+        scenario = get_scenario(scenario_key)
+        print(f"  - {scenario.title}: {scenario.guarded_outcome}")
+    print()
+    print("Key takeaway:")
+    print("  Research can stay useful while risky publication and deployment paths stay blocked.")
+    print()
+    print("Next step for buyers:")
+    print("  1. Get an API key from https://signalpulse.org")
+    print("  2. Replace your agent's self-approval with Stage0 /check")
+    print("  3. Add approval gates before publish, refund, or deploy side effects")
+    print()
 
 
 def main():
     """Run the complete demo."""
+    args = parse_args()
+    selected_scenarios = (
+        [scenario.key for scenario in list_scenarios()]
+        if args.scenario == "all"
+        else [args.scenario]
+    )
+
     print_header("stage0-agent-runtime-guard Demo")
-    
     print("This demonstration shows why autonomous AI agents require")
-    print("runtime execution guards. You will see two scenarios:")
+    print("runtime execution guards, using customer-facing scenarios.")
     print()
-    print("  1. WITHOUT Stage0: Agent executes freely, potentially overreaching")
-    print("  2. WITH Stage0: Every step is validated, unsafe actions are denied")
+    print("Scenarios in this build:")
+    for scenario in list_scenarios():
+        print(f"  - {scenario.key}: {scenario.title}")
     print()
-    
-    # Check setup
+
     issues = check_setup()
     if issues:
         print("NOTE: Setup issues detected:")
         for issue in issues:
             print(f"  - {issue}")
         print()
-        print("The demo will run with simulated Stage0 responses.")
-        print("For real validation, please configure your API key.")
+        print("The guarded demo will fall back to simulated Stage0 responses.")
+        print("Configure a real API key to show live policy decisions.")
         print()
-        input("Press Enter to continue...")
-    
-    # Run Demo 1: Without Stage0
-    print_section("DEMO 1: Agent WITHOUT Stage0 Runtime Guard")
-    
-    from demo.without_stage0 import main as run_without_stage0
-    run_without_stage0()
-    
-    print()
-    input("Press Enter to continue to Demo 2...")
-    
-    # Run Demo 2: With Stage0
-    print_section("DEMO 2: Agent WITH Stage0 Runtime Guard")
-    
-    from demo.with_stage0 import main as run_with_stage0
-    run_with_stage0()
-    
-    # Final comparison
-    print_section("COMPARISON SUMMARY")
-    
-    print("""
-┌─────────────────────────────────────────────────────────────────────┐
-│                    WITHOUT vs WITH Stage0                           │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  WITHOUT Stage0:                    WITH Stage0:                    │
-│  ─────────────────                  ─────────────                   │
-│  ✓ All steps executed               ✓ Only approved steps executed  │
-│  ✓ Full output generated            ✓ Scoped output generated       │
-│  ✗ Overreaching advice              ✓ No unauthorized advice        │
-│  ✗ Implementation code              ✓ No unauthorized code          │
-│  ✗ No external validation           ✓ External authority validates  │
-│  ✗ Agent self-approves              ✓ Agent cannot self-approve     │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│  KEY INSIGHT:                                                       │
-│                                                                     │
-│  Runtime guards like Stage0 are essential because:                 │
-│                                                                     │
-│  1. Agents cannot reliably self-constrain                          │
-│  2. Prompt-based constraints are easily bypassed                    │
-│  3. External validation catches what agents miss                    │
-│  4. Pre-execution validation prevents, not just detects            │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-""")
-    
-    print()
-    print("Demo complete!")
-    print()
-    print("To integrate Stage0 into your own agents:")
-    print("  1. Import: from stage0 import Stage0Client")
-    print("  2. Initialize: client = Stage0Client()")
-    print("  3. Validate: response = client.check_goal(intent)")
-    print("  4. Enforce: Only proceed if response.verdict == ALLOW")
-    print()
+        pause("Press Enter to continue...", args.auto)
+
+    for index, scenario_key in enumerate(selected_scenarios):
+        if index > 0:
+            pause("Press Enter to continue to the next scenario...", args.auto)
+        run_single_scenario(scenario_key, auto=args.auto)
+
+    print_portfolio_summary(selected_scenarios)
 
 
 if __name__ == "__main__":

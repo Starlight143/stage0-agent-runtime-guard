@@ -142,7 +142,8 @@ class Stage0Client:
         self, 
         api_key: Optional[str] = None,
         risk_threshold: int = 100,
-        deny_on_issues: bool = False
+        deny_on_issues: bool = False,
+        api_base_url: Optional[str] = None,
     ):
         """Initialize Stage0 client.
         
@@ -151,6 +152,8 @@ class Stage0Client:
             risk_threshold: Auto-deny if risk_score >= threshold. Default 100 (disabled).
                            Set lower (e.g., 20) to deny risky operations on free tier.
             deny_on_issues: If True, auto-deny when any issues are detected.
+            api_base_url: Optional explicit Stage0 base URL. Falls back to
+                         STAGE0_BASE_URL env var, then the production API URL.
         """
         self.api_key = api_key or os.getenv("STAGE0_API_KEY")
         if not self.api_key:
@@ -160,6 +163,7 @@ class Stage0Client:
             )
         self.risk_threshold = risk_threshold
         self.deny_on_issues = deny_on_issues
+        self.api_base_url = api_base_url or os.getenv("STAGE0_BASE_URL") or self.API_BASE_URL
     
     def check(self, intent: ExecutionIntent) -> PolicyResponse:
         """Validate an execution intent with Stage0.
@@ -177,7 +181,7 @@ class Stage0Client:
         Raises:
             requests.RequestException: If the API request fails.
         """
-        url = f"{self.API_BASE_URL}{self.CHECK_ENDPOINT}"
+        url = f"{self.api_base_url}{self.CHECK_ENDPOINT}"
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.api_key

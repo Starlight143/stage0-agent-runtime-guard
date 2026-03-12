@@ -1,153 +1,190 @@
 # stage0-agent-runtime-guard
 
-A demonstration project showing why autonomous AI agents require runtime execution guards.
+`stage0-agent-runtime-guard` is a customer-facing proof-of-value demo for [SignalPulse](https://signalpulse.org/), showing why AI agents need a runtime policy authority before they can publish, deploy, or otherwise create side effects.
 
-## Problem
+This repository is intentionally lightweight:
 
-Autonomous AI agents operate by planning and executing sequences of actions to achieve goals. Without external oversight, an agent may:
+- a small autonomous agent
+- a Stage0 API client
+- side-by-side guarded vs unguarded demos
+- customer-oriented scenarios you can show in a sales call, pilot, or internal evaluation
 
-- Execute actions that exceed its intended scope
-- Produce outputs that violate safety constraints
-- Make decisions based on incomplete context
-- Chain actions in ways that were not anticipated
+If you want the full product surface, dashboards, billing flows, API-key lifecycle, and hosted runtime described in the broader SignalPulse app, this repo is the shortest path to understanding the core runtime-guard value proposition.
 
-Traditional prompt-based constraints are insufficient because:
+## Why buyers care
 
-1. Agents can reinterpret or circumvent instructions
-2. Complex action chains create emergent behaviors
-3. No external authority validates execution intent
-4. Violations are only discovered after execution
+Most teams already know how to make an agent produce text. The hard part is stopping the agent from quietly escalating into actions that should require policy, approval, or stronger guardrails.
 
-## Why Runtime Guards Matter
+Without a runtime guard, an agent can:
 
-A runtime guard acts as an external policy authority that validates every execution intent **before** it happens. This differs from:
+- turn research into advice
+- turn drafting into publishing
+- turn analysis into deployment
+- turn "help me think" into "I already executed it"
 
-- **Prompt constraints**: Easily bypassed or reinterpreted by the agent
-- **Post-hoc filtering**: Only catches violations after damage is done
-- **Human review**: Does not scale and introduces latency
+Stage0 addresses that by validating execution intent before the action happens.
 
-Key properties of a runtime guard:
+## What this demo proves
 
-1. **External to the agent**: The agent cannot modify or bypass the guard
-2. **Pre-execution validation**: Actions are approved or denied before execution
-3. **Consistent policy enforcement**: Same rules apply regardless of agent reasoning
-4. **Auditable decisions**: Every verdict is logged with reasoning
+This repo demonstrates the boundary between:
 
-## What This Project Demonstrates
+- useful bounded assistance
+- unsafe autonomous escalation
 
-This project implements a research-style autonomous agent that:
+The demo intentionally compares two modes:
 
-1. Receives a research goal
-2. Plans a sequence of execution steps
-3. Executes steps to produce a structured report
+1. `WITHOUT Stage0`
+   The agent executes every planned step, including higher-risk steps that go beyond the user's original request.
+2. `WITH Stage0`
+   The agent still completes safe informational work, but Stage0 denies steps that attempt to publish or deploy without explicit guardrails.
 
-The project includes two demo modes:
+## Customer scenarios included
 
-- **Without Stage0**: Agent executes freely, producing overreaching output
-- **With Stage0**: Every step is validated; unsafe actions are denied
+This repository now includes three scenarios designed to map to common buyer conversations:
 
-## Without vs With Stage0
+1. `frameworks`
+   Research assistant for AI product teams. The agent should research and summarize, but should not silently become an implementation advisor.
+2. `policy_publish`
+   Customer-facing content publisher. The agent can draft and analyze, but should not publish outward-facing claims without approval.
+3. `deployment`
+   Production ops assistant. The agent can investigate incidents, but should not approve or execute rollout changes on its own.
 
-### Without Stage0 (`demo/without_stage0.py`)
+These scenarios are useful for:
 
-The agent plans and executes without external validation:
+- AI SaaS founders
+- internal tools teams
+- platform and DevOps teams
+- buyers evaluating runtime safety controls for agents
 
-```
-Goal: Research Python web frameworks
-Plan:
-  1. Search for popular Python web frameworks
-  2. Compare features and performance
-  3. Generate recommendation report
-  4. Provide implementation guidance
-  5. Include security best practices
-
-Result: Agent produces detailed implementation guidance and security recommendations
-that may exceed the intended research scope.
-```
-
-### With Stage0 (`demo/with_stage0.py`)
-
-The same agent with Stage0 validation:
-
-```
-Goal: Research Python web frameworks
-Plan:
-  1. Search for popular Python web frameworks
-     → Stage0: ALLOW (informational research)
-  2. Compare features and performance
-     → Stage0: ALLOW (informational research)
-  3. Generate recommendation report
-     → Stage0: ALLOW (informational output)
-  4. Provide implementation guidance
-     → Stage0: DENY (exceeds research scope, provides actionable advice)
-  5. Include security best practices
-     → Stage0: DENY (exceeds research scope, provides actionable advice)
-
-Result: Agent produces research report constrained to informational content.
-```
-
-## How to Run
+## Quick start
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- Stage0 API key from [SignalPulse](https://signalpulse.org/)
-
-> **Get your API key**: Visit [signalpulse.org](https://signalpulse.org/) to register and obtain your Stage0 API key. The API key is required to use the runtime guard functionality.
+- Python 3.10 or newer
+- A Stage0 API key from [SignalPulse](https://signalpulse.org/) if you want live policy decisions
 
 ### Setup
 
-1. Clone the repository:
-
 ```bash
-git clone <repository-url>
+git clone https://github.com/Starlight143/stage0-agent-runtime-guard.git
 cd stage0-agent-runtime-guard
-```
-
-2. Create virtual environment:
-
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-
-```bash
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-4. Configure environment:
-
-```bash
 cp .env.example .env
-# Edit .env and add your STAGE0_API_KEY
 ```
 
-### Run Demos
+Then set:
 
-Run both demos to see the contrast:
+```env
+STAGE0_API_KEY=your_api_key_here
+STAGE0_BASE_URL=https://api.signalpulse.org
+```
+
+If no API key is configured, the guarded demo falls back to simulated Stage0 responses so you can still demonstrate the control flow.
+
+## Run the demo
+
+### Run one scenario interactively
 
 ```bash
-python run_demo.py
+python run_demo.py --scenario frameworks
 ```
 
-Or run individually:
+### Run a scenario without pause prompts
 
 ```bash
-# Without Stage0 (unsafe execution)
-python -m demo.without_stage0
-
-# With Stage0 (guarded execution)
-python -m demo.with_stage0
+python run_demo.py --scenario deployment --auto
 ```
 
-### Expected Output
+### Run every scenario in sequence
 
-The demo will show:
+```bash
+python run_demo.py --scenario all --auto
+```
 
-1. Agent planning phase
-2. Execution steps (with Stage0 verdicts in guarded mode)
-3. Final output comparison
+## Expected outcome
 
-The guarded demo will demonstrate at least one denied action, showing how Stage0 constrains agent behavior.
+For each scenario, you will see:
+
+1. an unguarded run
+2. a guarded run
+3. the exact steps that Stage0 denied
+4. a summary of why those denied steps matter commercially and operationally
+
+The important observation is not "the agent was blocked." The real value is:
+
+- safe work still proceeds
+- risky work is denied before execution
+- the guard is external to the agent
+
+## Integrate Stage0 into your own agent
+
+The minimum integration is intentionally small:
+
+```python
+from stage0 import Stage0Client
+from stage0.client import Verdict
+
+client = Stage0Client()
+response = client.check_goal(
+    goal="Publish the weekly changelog",
+    success_criteria=["Post to the public changelog"],
+    constraints=["human approval required"],
+    tools=["shell"],
+    side_effects=["publish"],
+)
+
+if response.verdict != Verdict.ALLOW:
+    raise RuntimeError(response.reason)
+```
+
+In a real implementation, you should validate every execution step, not just the top-level task.
+
+## Repository structure
+
+```text
+agent/              Agent planning and execution logic
+demo/               Guarded and unguarded scenario runners
+stage0/             Stage0 API client
+run_demo.py         Multi-scenario demo entrypoint
+```
+
+## What changed in this repo
+
+This repo has been updated to better support customer conversion and live evaluation:
+
+- richer customer-facing demo scenarios
+- non-interactive CLI mode for recordings and scripted demos
+- clearer environment configuration for hosted Stage0
+- stronger buyer-oriented README positioning
+
+## When to use this repo vs the full app
+
+Use this repo when you want to:
+
+- show the concept quickly
+- demo the difference between guarded and unguarded execution
+- validate runtime guard behavior before a larger integration
+- support customer conversations with a minimal example
+
+Use the broader SignalPulse application when you want:
+
+- account management
+- hosted billing flows
+- API key lifecycle and issuance
+- dashboards, logs, and analytics
+- a fuller product experience
+
+## Get access
+
+To try the real Stage0 runtime:
+
+1. Visit [signalpulse.org](https://signalpulse.org/)
+2. Create an account
+3. Generate an API key
+4. Re-run this demo with your key in `.env`
+
+## License
+
+See the repository license and remote project terms before production use.

@@ -12,30 +12,42 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent import Agent
+from demo.scenarios import DemoScenario, get_scenario
 
 
-def main():
+def print_scenario_context(scenario: DemoScenario) -> None:
+    """Print the business framing for the selected scenario."""
+    print(f"Scenario: {scenario.title}")
+    print(f"Buyer context: {scenario.customer_type}")
+    print(f"Why it matters: {scenario.why_it_matters}")
+    print()
+
+
+def main(scenario_key: str = "frameworks"):
     """Run the unguarded agent demo."""
+    scenario = get_scenario(scenario_key)
+
     print("=" * 70)
     print("DEMO: Agent WITHOUT Stage0 Runtime Guard")
     print("=" * 70)
     print()
+    print_scenario_context(scenario)
     print("This demo shows an agent executing freely without any external")
     print("validation. Notice how it produces outputs that may exceed the")
-    print("intended research scope, including actionable recommendations")
-    print("and implementation guidance.")
+    print("intended task scope, including actionable recommendations,")
+    print("publication decisions, or deployment guidance.")
     print()
     print("WARNING: In a real scenario, this could lead to:")
-    print("  - Advice being provided when only research was requested")
-    print("  - Code generation without safety review")
-    print("  - Actions that violate user expectations or policy")
+    print(f"  - {scenario.unguarded_risk}")
+    print("  - Sensitive actions being prepared without external review")
+    print("  - Customer trust or production safety being put at risk")
     print()
     
     # Create agent WITHOUT Stage0 client
     agent = Agent(stage0_client=None)
     
     # Run with guarded=False to skip all validations
-    goal = "Research Python web frameworks for building APIs"
+    goal = scenario.goal
     result = agent.run(goal, guarded=False)
     
     # Show the final output
@@ -54,20 +66,18 @@ def main():
 Without Stage0 validation, the agent:
 
 1. Executed ALL planned steps without questioning scope
-2. Provided ACTIONABLE RECOMMENDATIONS (Step 4)
-   - "Start with Option A if you are new"
-   - "Consider Option B for production"
+2. Crossed from research or analysis into execution-oriented output
+   - Recommendations, approvals, or publication/deployment instructions
+   - No external authority checked whether those steps were appropriate
    
-3. Provided IMPLEMENTATION GUIDANCE (Step 5)
-   - Specific installation commands
-   - Code examples
-   - Security best practices
+3. Produced sensitive next-step guidance
+   - Commands, rollout decisions, or publish-ready instructions
+   - Output that a human might mistake for approved action
 
 These outputs may be valuable, BUT:
-- The user only asked for RESEARCH
-- Actionable advice could be misinterpreted
-- Implementation guidance could be outdated or incorrect
-- No external authority validated the appropriateness
+- The user asked for bounded assistance, not autonomous escalation
+- Sensitive output can be misinterpreted as approved next action
+- No external runtime authority validated the appropriateness
 
 This demonstrates why runtime guards are essential for
 autonomous AI agents operating in production environments.

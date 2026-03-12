@@ -13,74 +13,72 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent import Agent
+from demo.scenarios import DemoScenario, get_scenario
 from stage0 import Stage0Client
 
 
 def check_api_key() -> bool:
     """Check if Stage0 API key is configured."""
     api_key = os.getenv("STAGE0_API_KEY")
-    if not api_key or api_key == "your_api_key_here":
-        return False
-    return True
+    return bool(api_key and api_key != "your_api_key_here")
 
 
-def main():
+def print_scenario_context(scenario: DemoScenario) -> None:
+    """Print the business framing for the selected scenario."""
+    print(f"Scenario: {scenario.title}")
+    print(f"Buyer context: {scenario.customer_type}")
+    print(f"Why it matters: {scenario.why_it_matters}")
+    print()
+
+
+def main(scenario_key: str = "frameworks"):
     """Run the guarded agent demo."""
+    scenario = get_scenario(scenario_key)
+
     print("=" * 70)
     print("DEMO: Agent WITH Stage0 Runtime Guard")
     print("=" * 70)
     print()
-    
-    # Check for API key
+    print_scenario_context(scenario)
+
     if not check_api_key():
         print("ERROR: STAGE0_API_KEY environment variable is not set.")
         print()
-        print("To run this demo, you need a Stage0 API key from SignalPulse.")
+        print("To run this demo against the real API, you need a Stage0 API key")
+        print("from SignalPulse.")
         print()
         print("Setup instructions:")
         print("1. Copy .env.example to .env")
         print("2. Add your STAGE0_API_KEY to .env")
         print("3. Run this demo again")
         print()
-        print("If you don't have an API key, the demo will show simulated")
-        print("Stage0 responses to demonstrate the guard behavior.")
+        print("The fallback below uses simulated Stage0 responses so you can still")
+        print("show the guard behavior to prospects or teammates.")
         print()
-        
-        # Run with simulated responses for demonstration
-        run_simulated_demo()
+        run_simulated_demo(scenario_key)
         return
-    
+
     print("Stage0 API key found. Connecting to Stage0...")
     print()
-    print("This demo shows an agent where EVERY execution step is validated")
-    print("by Stage0 before execution. Steps that exceed scope are DENIED.")
+    print("This demo shows an agent where every execution step is validated")
+    print("by Stage0 before execution. Steps that exceed scope are denied.")
     print()
-    print("Note: The demo intentionally includes steps with HIGH risk side effects")
-    print("(publish, deploy) to trigger DENY verdicts from the API.")
-    print()
-    
-    # Create Stage0 client
+
     try:
         stage0_client = Stage0Client()
-    except ValueError as e:
-        print(f"Error initializing Stage0 client: {e}")
+    except ValueError as exc:
+        print(f"Error initializing Stage0 client: {exc}")
         return
-    
-    # Create agent WITH Stage0 client
+
     agent = Agent(stage0_client=stage0_client)
-    
-    # Run with guarded=True (default, but explicit here)
-    goal = "Research Python web frameworks for building APIs"
-    result = agent.run(goal, guarded=True)
-    
-    # Show the final output
+    result = agent.run(scenario.goal, guarded=True)
+
     print()
     print("=" * 70)
     print("FINAL OUTPUT (Constrained by Stage0)")
     print("=" * 70)
     print(result.final_output)
-    
-    # Show what was denied
+
     denied_steps = result.get_denied_steps()
     if denied_steps:
         print()
@@ -92,32 +90,28 @@ def main():
             print(f"Reason: {denied.stage0_reason}")
             if denied.stage0_verdict:
                 print(f"Verdict: {denied.stage0_verdict.value}")
-    
-    # Summary
+
     print()
     print("=" * 70)
     print("ANALYSIS: How Stage0 protected the execution")
     print("=" * 70)
-    
-    executed_count = sum(1 for r in result.results if r.success and not r.skipped)
+
+    executed_count = sum(1 for item in result.results if item.success and not item.skipped)
     denied_count = len(denied_steps)
-    
-    print(f"""
+
+    print(
+        f"""
 With Stage0 validation:
 
 1. Steps 1-3: ALLOWED
-   - Research, analysis, and informational reports
+   - Research, analysis, and informational preparation
    - No high-risk side effects, proper constraints
-   
-2. Steps 4-5: DENIED
-   - Step 4: Declares "publish" side effect without guardrails
-     → Triggers SIDE_EFFECTS_NEED_GUARDRAILS (HIGH severity)
-   - Step 5: Uses "shell" tool with "deploy" side effect
-     → Triggers SIDE_EFFECTS_NEED_GUARDRAILS (HIGH severity)
-     → Also triggers SENSITIVE_TOOLS_NEED_CONSTRAINTS (MEDIUM severity)
 
-Result: The agent produced a focused research output without
-executing steps that could publish or deploy content.
+2. Steps 4-5: DENIED
+   - Stage0 blocks steps that try to publish, approve, or deploy
+   - The agent is forced to stop before it can create external or production side effects
+
+Result: {scenario.guarded_outcome}
 
 This demonstrates the value of runtime guards:
 - External authority validates intent before execution
@@ -128,11 +122,14 @@ This demonstrates the value of runtime guards:
 Stats:
 - Steps executed: {executed_count}
 - Steps denied: {denied_count}
-""")
+"""
+    )
 
 
-def run_simulated_demo():
+def run_simulated_demo(scenario_key: str):
     """Run demo with simulated Stage0 responses."""
+    scenario = get_scenario(scenario_key)
+
     print("=" * 70)
     print("SIMULATED DEMO: What Stage0 would do")
     print("=" * 70)
@@ -140,72 +137,71 @@ def run_simulated_demo():
     print("Since no API key is available, this shows simulated responses")
     print("that demonstrate how Stage0 would guard the agent.")
     print()
-    
-    # Simulated plan steps with side effects
+
     steps = [
         {
             "id": 1,
-            "goal": "Search for information about Python web frameworks",
+            "goal": f"Collect source material for: {scenario.goal}",
             "type": "research",
             "side_effects": [],
             "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational research with no side effects"
+            "simulated_reason": "Informational research with no side effects",
         },
         {
             "id": 2,
-            "goal": "Analyze and compare Python web frameworks",
+            "goal": f"Analyze key constraints and trade-offs for: {scenario.goal}",
             "type": "analysis",
             "side_effects": [],
             "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational analysis within scope"
+            "simulated_reason": "Informational analysis within scope",
         },
         {
             "id": 3,
-            "goal": "Generate a summary report on Python web frameworks",
+            "goal": f"Generate an internal summary draft for: {scenario.goal}",
             "type": "output",
             "side_effects": [],
             "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational output, no actionable advice"
+            "simulated_reason": "Informational output, no actionable advice",
         },
         {
             "id": 4,
-            "goal": "Provide actionable recommendations for Python web frameworks",
+            "goal": f"Approve or publish the next customer-facing action for: {scenario.goal}",
             "type": "synthesis",
             "side_effects": ["publish"],
             "simulated_verdict": "DENY",
-            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'publish' side effect without guardrails"
+            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'publish' side effect without guardrails",
         },
         {
             "id": 5,
-            "goal": "Provide step-by-step implementation guidance",
+            "goal": f"Use sensitive tools to change live state for: {scenario.goal}",
             "type": "output",
             "side_effects": ["deploy"],
             "simulated_verdict": "DENY",
-            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'deploy' side effect without guardrails"
-        }
+            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'deploy' side effect without guardrails",
+        },
     ]
-    
-    print("Plan: Research Python web frameworks for building APIs")
+
+    print(f"Plan: {scenario.goal}")
     print("-" * 70)
     print()
-    
-    executed_outputs = []
-    
+
+    executed_outputs: list[str] = []
+
     for step in steps:
         print(f"Step {step['id']}: {step['goal']}")
         print(f"  Type: {step['type']}")
         print(f"  Side Effects: {step['side_effects'] or 'None'}")
         print(f"  Stage0 Verdict: {step['simulated_verdict']}")
         print(f"  Reason: {step['simulated_reason']}")
-        
-        if step['simulated_verdict'] == "ALLOW":
-            print(f"  Action: EXECUTING...")
-            executed_outputs.append(step['goal'])
+
+        if step["simulated_verdict"] == "ALLOW":
+            print("  Action: EXECUTING...")
+            executed_outputs.append(step["goal"])
         else:
-            print(f"  Action: SKIPPED (not authorized)")
-        
+            print("  Action: SKIPPED (not authorized)")
+
         print()
-    
+
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
@@ -213,21 +209,22 @@ def run_simulated_demo():
     print("Steps Executed (ALLOW):")
     for output in executed_outputs:
         print(f"  - {output}")
-    
+
     print()
     print("Steps Denied (DENY):")
-    print("  - Provide actionable recommendations (publish side effect)")
-    print("  - Provide step-by-step implementation guidance (deploy side effect)")
-    
+    print("  - Approve or publish the next customer-facing action (publish side effect)")
+    print("  - Use sensitive tools to change live state (deploy side effect)")
+
     print()
     print("=" * 70)
-    print("RESULT: Agent stayed within research scope")
+    print("RESULT: Agent stayed within the approved task boundary")
     print("=" * 70)
-    print("""
+    print(
+        """
 The Stage0 runtime guard prevented the agent from:
 
-1. Publishing actionable recommendations without guardrails
-2. Deploying implementation guidance
+1. Escalating from safe analysis into high-risk action
+2. Publishing or deploying without explicit guardrails
 
 Key API behavior:
 - HIGH severity issues (SIDE_EFFECTS_NEED_GUARDRAILS) trigger DENY
@@ -235,7 +232,8 @@ Key API behavior:
 - Free tier can still get DENY for high-risk operations
 
 To run with real Stage0 validation, configure STAGE0_API_KEY.
-""")
+"""
+    )
 
 
 if __name__ == "__main__":
