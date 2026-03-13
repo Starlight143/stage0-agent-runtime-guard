@@ -79,17 +79,17 @@ def main(scenario_key: str = "frameworks"):
     print("=" * 70)
     print(result.final_output)
 
-    denied_steps = result.get_denied_steps()
-    if denied_steps:
+    blocked_steps = result.get_denied_steps()
+    if blocked_steps:
         print()
         print("=" * 70)
-        print("DENIED STEPS (Stage0 prevented execution)")
+        print("BLOCKED STEPS (Stage0 prevented execution)")
         print("=" * 70)
-        for denied in denied_steps:
-            print(f"\nStep {denied.step.step_id}: {denied.step.goal}")
-            print(f"Reason: {denied.stage0_reason}")
-            if denied.stage0_verdict:
-                print(f"Verdict: {denied.stage0_verdict.value}")
+        for blocked in blocked_steps:
+            print(f"\nStep {blocked.step.step_id}: {blocked.step.goal}")
+            print(f"Reason: {blocked.stage0_reason}")
+            if blocked.stage0_verdict:
+                print(f"Verdict: {blocked.stage0_verdict.value}")
 
     print()
     print("=" * 70)
@@ -97,7 +97,20 @@ def main(scenario_key: str = "frameworks"):
     print("=" * 70)
 
     executed_count = sum(1 for item in result.results if item.success and not item.skipped)
-    denied_count = len(denied_steps)
+    denied_count = sum(
+        1
+        for item in blocked_steps
+        if item.stage0_verdict and item.stage0_verdict.value == "DENY"
+    )
+    deferred_count = sum(
+        1
+        for item in blocked_steps
+        if item.stage0_verdict and item.stage0_verdict.value == "DEFER"
+    )
+
+    final_gate_summary = "DENY or DEFER"
+    if scenario_key == "agent_loops":
+        final_gate_summary = "DEFER"
 
     print(
         f"""
@@ -107,21 +120,22 @@ With Stage0 validation:
    - Research, analysis, and informational preparation
    - No high-risk side effects, proper constraints
 
-2. Steps 4-5: DENIED
-   - Stage0 blocks steps that try to publish, approve, or deploy
-   - The agent is forced to stop before it can create external or production side effects
+2. Steps 4-5: {final_gate_summary}
+   - Stage0 blocks or defers steps that cross into publish, deploy, or runaway-loop behavior
+   - The agent is forced to stop before it can create external, production, or repeated side effects
 
 Result: {scenario.guarded_outcome}
 
 This demonstrates the value of runtime guards:
 - External authority validates intent before execution
 - Agent cannot self-approve actions
-- High-risk side effects are blocked without proper guardrails
+- High-risk side effects and repeated loops are blocked without proper guardrails
 - Violations are prevented, not just detected after the fact
 
 Stats:
 - Steps executed: {executed_count}
 - Steps denied: {denied_count}
+- Steps deferred: {deferred_count}
 """
     )
 
@@ -138,48 +152,92 @@ def run_simulated_demo(scenario_key: str):
     print("that demonstrate how Stage0 would guard the agent.")
     print()
 
-    steps = [
-        {
-            "id": 1,
-            "goal": f"Collect source material for: {scenario.goal}",
-            "type": "research",
-            "side_effects": [],
-            "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational research with no side effects",
-        },
-        {
-            "id": 2,
-            "goal": f"Analyze key constraints and trade-offs for: {scenario.goal}",
-            "type": "analysis",
-            "side_effects": [],
-            "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational analysis within scope",
-        },
-        {
-            "id": 3,
-            "goal": f"Generate an internal summary draft for: {scenario.goal}",
-            "type": "output",
-            "side_effects": [],
-            "simulated_verdict": "ALLOW",
-            "simulated_reason": "Informational output, no actionable advice",
-        },
-        {
-            "id": 4,
-            "goal": f"Approve or publish the next customer-facing action for: {scenario.goal}",
-            "type": "synthesis",
-            "side_effects": ["publish"],
-            "simulated_verdict": "DENY",
-            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'publish' side effect without guardrails",
-        },
-        {
-            "id": 5,
-            "goal": f"Use sensitive tools to change live state for: {scenario.goal}",
-            "type": "output",
-            "side_effects": ["deploy"],
-            "simulated_verdict": "DENY",
-            "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'deploy' side effect without guardrails",
-        },
-    ]
+    if scenario_key == "agent_loops":
+        steps = [
+            {
+                "id": 1,
+                "goal": f"Collect runtime history for: {scenario.goal}",
+                "type": "research",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "Observing existing run state is informational only",
+            },
+            {
+                "id": 2,
+                "goal": f"Analyze retry counts and repeated tool paths for: {scenario.goal}",
+                "type": "analysis",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "Loop analysis is within scope and has no side effects",
+            },
+            {
+                "id": 3,
+                "goal": f"Generate an operator handoff summary for: {scenario.goal}",
+                "type": "output",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "A bounded handoff is safe and reviewable",
+            },
+            {
+                "id": 4,
+                "goal": f"Keep retrying the same workflow for: {scenario.goal}",
+                "type": "synthesis",
+                "side_effects": ["loop"],
+                "simulated_verdict": "DEFER",
+                "simulated_reason": "Loop threshold reached: human confirmation required before extending retry budget",
+            },
+            {
+                "id": 5,
+                "goal": f"Re-run the same sensitive recovery action for: {scenario.goal}",
+                "type": "output",
+                "side_effects": ["loop", "deploy"],
+                "simulated_verdict": "DEFER",
+                "simulated_reason": "Repeated side effects detected: require run_id review and policy escalation before continuing",
+            },
+        ]
+    else:
+        steps = [
+            {
+                "id": 1,
+                "goal": f"Collect source material for: {scenario.goal}",
+                "type": "research",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "Informational research with no side effects",
+            },
+            {
+                "id": 2,
+                "goal": f"Analyze key constraints and trade-offs for: {scenario.goal}",
+                "type": "analysis",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "Informational analysis within scope",
+            },
+            {
+                "id": 3,
+                "goal": f"Generate an internal summary draft for: {scenario.goal}",
+                "type": "output",
+                "side_effects": [],
+                "simulated_verdict": "ALLOW",
+                "simulated_reason": "Informational output, no actionable advice",
+            },
+            {
+                "id": 4,
+                "goal": f"Approve or publish the next customer-facing action for: {scenario.goal}",
+                "type": "synthesis",
+                "side_effects": ["publish"],
+                "simulated_verdict": "DENY",
+                "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'publish' side effect without guardrails",
+            },
+            {
+                "id": 5,
+                "goal": f"Use sensitive tools to change live state for: {scenario.goal}",
+                "type": "output",
+                "side_effects": ["deploy"],
+                "simulated_verdict": "DENY",
+                "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'deploy' side effect without guardrails",
+            },
+        ]
 
     print(f"Plan: {scenario.goal}")
     print("-" * 70)
@@ -197,6 +255,8 @@ def run_simulated_demo(scenario_key: str):
         if step["simulated_verdict"] == "ALLOW":
             print("  Action: EXECUTING...")
             executed_outputs.append(step["goal"])
+        elif step["simulated_verdict"] == "DEFER":
+            print("  Action: SKIPPED (requires human review)")
         else:
             print("  Action: SKIPPED (not authorized)")
 
@@ -211,9 +271,14 @@ def run_simulated_demo(scenario_key: str):
         print(f"  - {output}")
 
     print()
-    print("Steps Denied (DENY):")
-    print("  - Approve or publish the next customer-facing action (publish side effect)")
-    print("  - Use sensitive tools to change live state (deploy side effect)")
+    if scenario_key == "agent_loops":
+        print("Steps Deferred (DEFER):")
+        print("  - Keep retrying the same workflow (loop budget exceeded)")
+        print("  - Re-run the same sensitive recovery action (repeat side effects)")
+    else:
+        print("Steps Denied (DENY):")
+        print("  - Approve or publish the next customer-facing action (publish side effect)")
+        print("  - Use sensitive tools to change live state (deploy side effect)")
 
     print()
     print("=" * 70)
@@ -224,10 +289,11 @@ def run_simulated_demo(scenario_key: str):
 The Stage0 runtime guard prevented the agent from:
 
 1. Escalating from safe analysis into high-risk action
-2. Publishing or deploying without explicit guardrails
+2. Publishing, deploying, or extending loop behavior without explicit guardrails
 
 Key API behavior:
 - HIGH severity issues (SIDE_EFFECTS_NEED_GUARDRAILS) trigger DENY
+- Loop-like or under-specified follow-up actions can trigger DEFER
 - MEDIUM severity issues require Pro plan for DENY
 - Free tier can still get DENY for high-risk operations
 

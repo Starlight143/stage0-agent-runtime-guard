@@ -111,12 +111,12 @@ def print_portfolio_summary(selected_scenarios: list[str]) -> None:
         print(f"  - {scenario.title}: {scenario.guarded_outcome}")
     print()
     print("Key takeaway:")
-    print("  Research can stay useful while risky publication and deployment paths stay blocked.")
+    print("  Research can stay useful while risky publication, deployment, and runaway retry paths stay blocked.")
     print()
     print("Next step for buyers:")
     print("  1. Get an API key from https://signalpulse.org")
     print("  2. Replace your agent's self-approval with Stage0 /check")
-    print("  3. Add approval gates before publish, refund, or deploy side effects")
+    print("  3. Add approval gates before publish, refund, deploy, or loop-extension side effects")
     print()
 
 

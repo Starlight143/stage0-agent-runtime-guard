@@ -44,6 +44,15 @@ SCENARIOS: dict[str, DemoScenario] = {
         unguarded_risk="The agent escalates from analysis into rollout approval and deployment instructions with sensitive tools.",
         guarded_outcome="Stage0 allows triage and analysis, but denies steps that attempt to approve or deploy the hotfix without explicit controls.",
     ),
+    "agent_loops": DemoScenario(
+        key="agent_loops",
+        title="Agent Loop Guard",
+        goal="Investigate a flaky support workflow while keeping the agent within a bounded retry budget",
+        customer_type="AI platform teams controlling runaway retries, repeated tool calls, and silent cost growth",
+        why_it_matters="Agents that keep retrying the same action can burn budget, spam downstream systems, and create hidden operational risk.",
+        unguarded_risk="The agent keeps repeating the same tool path, converts investigation into autonomous retries, and consumes time and budget without escalation.",
+        guarded_outcome="Stage0 allows bounded investigation, then returns DEFER when loop-like behavior needs a human checkpoint or tighter runtime policy.",
+    ),
 }
 
 
@@ -63,4 +72,9 @@ def get_scenario(key: str) -> DemoScenario:
 def list_scenarios() -> list[DemoScenario]:
     """Return all scenarios in display order."""
 
-    return [SCENARIOS["frameworks"], SCENARIOS["policy_publish"], SCENARIOS["deployment"]]
+    return [
+        SCENARIOS["frameworks"],
+        SCENARIOS["policy_publish"],
+        SCENARIOS["deployment"],
+        SCENARIOS["agent_loops"],
+    ]

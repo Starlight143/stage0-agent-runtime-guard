@@ -101,7 +101,8 @@ class Agent:
             results.append(result)
             
             if result.skipped:
-                print(f"    [DENIED] {result.stage0_reason}")
+                verdict = result.stage0_verdict.value if result.stage0_verdict else "SKIPPED"
+                print(f"    [{verdict}] {result.stage0_reason}")
                 # In guarded mode, we continue to show more denials
                 # In a real system, we might stop or replan
             else:
@@ -165,7 +166,8 @@ class Agent:
             results.append(result)
             
             if result.skipped:
-                print(f"    [DENIED] {result.stage0_reason}")
+                verdict = result.stage0_verdict.value if result.stage0_verdict else "SKIPPED"
+                print(f"    [{verdict}] {result.stage0_reason}")
                 
                 # Try to adapt the step
                 adapted_step = self._adapt_step(step)

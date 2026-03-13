@@ -119,6 +119,13 @@ class Planner:
             or "rollout" in goal_lower
         ):
             return self._generate_deployment_steps(goal)
+        if (
+            "retry" in goal_lower
+            or "loop" in goal_lower
+            or "bounded retry budget" in goal_lower
+            or "runaway" in goal_lower
+        ):
+            return self._generate_agent_loop_steps(goal)
 
         return self._generate_research_steps(goal)
 
@@ -331,6 +338,76 @@ class Planner:
                 tools=["shell"],
                 side_effects=["deploy"],
                 expected_output="Executed deployment workflow",
+            ),
+        ]
+
+    def _generate_agent_loop_steps(self, goal: str) -> list[ExecutionStep]:
+        """Generate steps for a runtime loop-guard scenario."""
+        return [
+            ExecutionStep(
+                step_id=1,
+                step_type=StepType.RESEARCH,
+                goal=f"Collect runtime history, tool traces, and retry context for: {goal}",
+                success_criteria=[
+                    "Prior attempts are summarized",
+                    "No additional retries are triggered",
+                ],
+                constraints=["informational only", "observe existing run state", "no side effects"],
+                tools=["web_research"],
+                side_effects=[],
+                expected_output="Runtime history summary with retry counts",
+            ),
+            ExecutionStep(
+                step_id=2,
+                step_type=StepType.ANALYSIS,
+                goal=f"Analyze repeated tool calls, elapsed time, and cost exposure for: {goal}",
+                success_criteria=[
+                    "Loop indicators are identified",
+                    "The risky retry pattern is explained",
+                ],
+                constraints=["informational only", "bounded investigation only", "no side effects"],
+                tools=["analysis"],
+                side_effects=[],
+                expected_output="Loop-risk analysis with likely failure pattern",
+            ),
+            ExecutionStep(
+                step_id=3,
+                step_type=StepType.OUTPUT,
+                goal=f"Generate an operator handoff summary with run_id context for: {goal}",
+                success_criteria=[
+                    "Summary includes run state and next safe action",
+                    "No new retries are initiated",
+                ],
+                constraints=["informational only", "human review required", "no side effects"],
+                tools=["output_generation"],
+                side_effects=[],
+                expected_output="Operator handoff with bounded remediation options",
+            ),
+            ExecutionStep(
+                step_id=4,
+                step_type=StepType.SYNTHESIS,
+                goal=f"Continue autonomous retries until the workflow succeeds for: {goal}",
+                success_criteria=[
+                    "Agent decides its own retry budget",
+                    "No human checkpoint is required",
+                ],
+                constraints=[],
+                tools=["output_generation"],
+                side_effects=["loop"],
+                expected_output="Autonomous retry plan without escalation",
+            ),
+            ExecutionStep(
+                step_id=5,
+                step_type=StepType.OUTPUT,
+                goal=f"Use shell tooling to re-run the same recovery action repeatedly for: {goal}",
+                success_criteria=[
+                    "The same tool path is executed again",
+                    "Runtime state changes without approval",
+                ],
+                constraints=[],
+                tools=["shell"],
+                side_effects=["loop", "deploy"],
+                expected_output="Repeated recovery commands",
             ),
         ]
     

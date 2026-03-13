@@ -1,6 +1,6 @@
 # stage0-agent-runtime-guard
 
-`stage0-agent-runtime-guard` is a customer-facing proof-of-value demo for [SignalPulse](https://signalpulse.org/), showing why AI agents need a runtime policy authority before they can publish, deploy, or otherwise create side effects.
+`stage0-agent-runtime-guard` is a customer-facing proof-of-value demo for [SignalPulse](https://signalpulse.org/), showing why AI agents need a runtime policy authority before they can publish, deploy, keep retrying autonomously, or otherwise create side effects.
 
 This repository is intentionally lightweight:
 
@@ -22,7 +22,7 @@ Without a runtime guard, an agent can:
 - turn analysis into deployment
 - turn "help me think" into "I already executed it"
 
-Stage0 addresses that by validating execution intent before the action happens.
+Stage0 addresses that by validating execution intent before the action happens and returning an external verdict: `ALLOW`, `DENY`, or `DEFER`.
 
 ## What this demo proves
 
@@ -36,11 +36,11 @@ The demo intentionally compares two modes:
 1. `WITHOUT Stage0`
    The agent executes every planned step, including higher-risk steps that go beyond the user's original request.
 2. `WITH Stage0`
-   The agent still completes safe informational work, but Stage0 denies steps that attempt to publish or deploy without explicit guardrails.
+   The agent still completes safe informational work, but Stage0 denies or defers steps that attempt to publish, deploy, or keep looping without explicit guardrails.
 
 ## Customer scenarios included
 
-This repository now includes three scenarios designed to map to common buyer conversations:
+This repository now includes four scenarios designed to map to common buyer conversations:
 
 1. `frameworks`
    Research assistant for AI product teams. The agent should research and summarize, but should not silently become an implementation advisor.
@@ -48,6 +48,8 @@ This repository now includes three scenarios designed to map to common buyer con
    Customer-facing content publisher. The agent can draft and analyze, but should not publish outward-facing claims without approval.
 3. `deployment`
    Production ops assistant. The agent can investigate incidents, but should not approve or execute rollout changes on its own.
+4. `agent_loops`
+   Runtime loop guard. The agent can inspect retry history and prepare an operator handoff, but should not keep extending its own retry budget or repeat sensitive tool paths unattended.
 
 These scenarios are useful for:
 
@@ -103,20 +105,24 @@ python run_demo.py --scenario deployment --auto
 python run_demo.py --scenario all --auto
 ```
 
+Available scenario keys: `frameworks`, `policy_publish`, `deployment`, `agent_loops`
+
 ## Expected outcome
 
 For each scenario, you will see:
 
 1. an unguarded run
 2. a guarded run
-3. the exact steps that Stage0 denied
+3. the exact steps that Stage0 denied or deferred
 4. a summary of why those denied steps matter commercially and operationally
 
 The important observation is not "the agent was blocked." The real value is:
 
 - safe work still proceeds
-- risky work is denied before execution
+- risky work is denied or deferred before execution
 - the guard is external to the agent
+
+`DEFER` is especially useful when the agent is drifting into loop-like behavior, under-specified follow-up actions, or situations that need a human checkpoint instead of a silent retry.
 
 ## Integrate Stage0 into your own agent
 
@@ -141,6 +147,8 @@ if response.verdict != Verdict.ALLOW:
 
 In a real implementation, you should validate every execution step, not just the top-level task.
 
+For loop-style workloads, the same pattern should be applied to runtime state as well. In practice that means passing stable execution identifiers and constraints such as retry budgets, elapsed-time ceilings, or repeated-tool thresholds into the policy layer before the agent decides to continue.
+
 ## Repository structure
 
 ```text
@@ -155,9 +163,10 @@ run_demo.py         Multi-scenario demo entrypoint
 This repo has been updated to better support customer conversion and live evaluation:
 
 - richer customer-facing demo scenarios
+- a new agent-loop scenario aligned to runtime retry controls
 - non-interactive CLI mode for recordings and scripted demos
 - clearer environment configuration for hosted Stage0
-- stronger buyer-oriented README positioning
+- stronger buyer-oriented README positioning around `ALLOW / DENY / DEFER`
 
 ## When to use this repo vs the full app
 
@@ -166,6 +175,7 @@ Use this repo when you want to:
 - show the concept quickly
 - demo the difference between guarded and unguarded execution
 - validate runtime guard behavior before a larger integration
+- explain why loop guards matter before integrating runtime state into production agents
 - support customer conversations with a minimal example
 
 Use the broader SignalPulse application when you want:
