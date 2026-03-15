@@ -5,7 +5,7 @@
 This repository is intentionally lightweight:
 
 - a small autonomous agent
-- a Stage0 API client
+- a Stage0 API client aligned with the current hosted runtime contract
 - side-by-side guarded vs unguarded demos
 - customer-oriented scenarios you can show in a sales call, pilot, or internal evaluation
 
@@ -23,6 +23,13 @@ Without a runtime guard, an agent can:
 - turn "help me think" into "I already executed it"
 
 Stage0 addresses that by validating execution intent before the action happens and returning an external verdict: `ALLOW`, `DENY`, or `DEFER`.
+
+The current hosted contract also carries runtime metadata such as:
+
+- `decision` (`GO`, `NO_GO`, `DEFER`, `ERROR`)
+- `request_id`
+- `policy_pack_version` / `policy_version`
+- runtime `context` fields for approvals, roles, environments, channels, and loop state
 
 ## What this demo proves
 
@@ -107,6 +114,14 @@ python run_demo.py --scenario all --auto
 
 Available scenario keys: `frameworks`, `policy_publish`, `deployment`, `agent_loops`
 
+## Included reference docs
+
+This demo repo now includes lightweight customer-facing reference docs derived from the main product:
+
+- `docs/runtime-contract.md`
+- `docs/reference-scenarios.md`
+- `docs/service-overview.md`
+
 ## Expected outcome
 
 For each scenario, you will see:
@@ -139,13 +154,19 @@ response = client.check_goal(
     constraints=["human approval required"],
     tools=["shell"],
     side_effects=["publish"],
+    context={
+        "actor_role": "platform_admin",
+        "approval_status": "approved",
+        "environment": "production",
+        "request_channel": "dashboard",
+    },
 )
 
 if response.verdict != Verdict.ALLOW:
     raise RuntimeError(response.reason)
 ```
 
-In a real implementation, you should validate every execution step, not just the top-level task.
+In a real implementation, you should validate every execution step, not just the top-level task. The client in this repo now supports both the request `context` object and richer response fields like `decision`, `request_id`, `policy_version`, `guardrail_checks`, and `decision_trace_summary`.
 
 For loop-style workloads, the same pattern should be applied to runtime state as well. In practice that means passing stable execution identifiers and constraints such as retry budgets, elapsed-time ceilings, or repeated-tool thresholds into the policy layer before the agent decides to continue.
 
@@ -155,6 +176,7 @@ For loop-style workloads, the same pattern should be applied to runtime state as
 agent/              Agent planning and execution logic
 demo/               Guarded and unguarded scenario runners
 stage0/             Stage0 API client
+docs/               Buyer-facing contract and scenario references
 run_demo.py         Multi-scenario demo entrypoint
 ```
 

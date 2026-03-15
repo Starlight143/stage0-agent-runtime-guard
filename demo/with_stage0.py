@@ -88,8 +88,14 @@ def main(scenario_key: str = "frameworks"):
         for blocked in blocked_steps:
             print(f"\nStep {blocked.step.step_id}: {blocked.step.goal}")
             print(f"Reason: {blocked.stage0_reason}")
+            if blocked.stage0_decision:
+                print(f"Decision: {blocked.stage0_decision.value}")
             if blocked.stage0_verdict:
                 print(f"Verdict: {blocked.stage0_verdict.value}")
+            if blocked.stage0_request_id:
+                print(f"Request ID: {blocked.stage0_request_id}")
+            if blocked.stage0_policy_version:
+                print(f"Policy Version: {blocked.stage0_policy_version}")
 
     print()
     print("=" * 70)
@@ -130,6 +136,7 @@ This demonstrates the value of runtime guards:
 - External authority validates intent before execution
 - Agent cannot self-approve actions
 - High-risk side effects and repeated loops are blocked without proper guardrails
+- Runtime context such as approvals, environment, request channel, and run state can shape the decision
 - Violations are prevented, not just detected after the fact
 
 Stats:

@@ -7,7 +7,7 @@ optional Stage0 validation before each execution.
 from dataclasses import dataclass
 from typing import Optional
 
-from stage0.client import Stage0Client, ExecutionIntent, Verdict
+from stage0.client import Decision, Stage0Client, ExecutionIntent, Verdict
 from agent.planner import ExecutionStep, StepType
 
 
@@ -19,6 +19,9 @@ class ExecutionResult:
     output: str
     stage0_verdict: Optional[Verdict] = None
     stage0_reason: Optional[str] = None
+    stage0_decision: Optional[Decision] = None
+    stage0_request_id: Optional[str] = None
+    stage0_policy_version: Optional[str] = None
     skipped: bool = False
     
     def __str__(self) -> str:
@@ -72,6 +75,9 @@ class Executor:
         """
         stage0_verdict = None
         stage0_reason = None
+        stage0_decision = None
+        stage0_request_id = None
+        stage0_policy_version = None
         
         # Validate with Stage0 if client is available and validation is enabled
         if validate:
@@ -84,13 +90,19 @@ class Executor:
                     success_criteria=step.success_criteria,
                     constraints=step.constraints,
                     tools=step.tools,
-                    side_effects=step.side_effects
+                    side_effects=step.side_effects,
+                    context=step.context,
                 )
                 
                 try:
                     response = self.stage0_client.check(intent)
                     stage0_verdict = response.verdict
                     stage0_reason = response.reason
+                    stage0_decision = response.decision
+                    stage0_request_id = response.request_id
+                    stage0_policy_version = (
+                        response.policy_version or response.policy_pack_version
+                    )
                     
                     # If denied, skip execution
                     if response.verdict == Verdict.DENY:
@@ -100,6 +112,9 @@ class Executor:
                             output="",
                             stage0_verdict=stage0_verdict,
                             stage0_reason=stage0_reason,
+                            stage0_decision=stage0_decision,
+                            stage0_request_id=stage0_request_id,
+                            stage0_policy_version=stage0_policy_version,
                             skipped=True
                         )
                         self.results.append(result)
@@ -113,6 +128,9 @@ class Executor:
                             output=f"Clarification required: {response.reason}",
                             stage0_verdict=stage0_verdict,
                             stage0_reason=stage0_reason,
+                            stage0_decision=stage0_decision,
+                            stage0_request_id=stage0_request_id,
+                            stage0_policy_version=stage0_policy_version,
                             skipped=True
                         )
                         self.results.append(result)
@@ -126,6 +144,7 @@ class Executor:
                         output=f"Stage0 validation failed: {str(e)}",
                         stage0_verdict=Verdict.DENY,
                         stage0_reason="Stage0 unavailable - fail-safe denial",
+                        stage0_decision=Decision.ERROR,
                         skipped=True
                     )
                     self.results.append(result)
@@ -139,7 +158,10 @@ class Executor:
             success=True,
             output=output,
             stage0_verdict=stage0_verdict,
-            stage0_reason=stage0_reason
+            stage0_reason=stage0_reason,
+            stage0_decision=stage0_decision,
+            stage0_request_id=stage0_request_id,
+            stage0_policy_version=stage0_policy_version,
         )
         self.results.append(result)
         return result
@@ -296,7 +318,7 @@ class Executor:
                 f"[OPERATOR HANDOFF]\n"
                 f"Topic: {step.goal}\n\n"
                 f"Runtime snapshot:\n"
-                f"- run_id: support-workflow-2026-03-14-01\n"
+                f"- run_id: support-workflow-2026-03-15-01\n"
                 f"- repeated tool path: replay_ticket_sync\n"
                 f"- retries observed: 4\n"
                 f"- estimated spend impact: increasing\n\n"
@@ -344,9 +366,9 @@ class Executor:
                 f"Topic: {step.goal}\n\n"
                 f"Suggested repeated commands:\n"
                 f"```bash\n"
-                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-14-01\n"
-                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-14-01\n"
-                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-14-01\n"
+                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-15-01\n"
+                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-15-01\n"
+                f"python scripts/replay_ticket_sync.py --run-id support-workflow-2026-03-15-01\n"
                 f"```\n\n"
                 f"Why this is dangerous:\n"
                 f"- It repeats the same failing tool path without a human checkpoint.\n"

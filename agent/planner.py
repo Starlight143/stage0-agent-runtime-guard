@@ -4,8 +4,9 @@ This module handles the planning phase of the agent, breaking down
 a high-level goal into executable steps.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class StepType(Enum):
@@ -27,6 +28,7 @@ class ExecutionStep:
     tools: list[str]
     side_effects: list[str]
     expected_output: str
+    context: dict[str, Any] = field(default_factory=dict)
     
     def __str__(self) -> str:
         """Human-readable representation."""
@@ -242,6 +244,11 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=[],
                 expected_output="Internal draft with review checklist",
+                context={
+                    "actor_role": "policy_editor",
+                    "approval_status": "pending",
+                    "environment": "production",
+                },
             ),
             ExecutionStep(
                 step_id=4,
@@ -255,6 +262,13 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=["publish"],
                 expected_output="Published policy page copy",
+                context={
+                    "actor_role": "policy_editor",
+                    "approval_status": "missing",
+                    "environment": "production",
+                    "customer_visible_approved": False,
+                    "request_channel": "dashboard",
+                },
             ),
             ExecutionStep(
                 step_id=5,
@@ -268,6 +282,12 @@ class Planner:
                 tools=["shell"],
                 side_effects=["deploy"],
                 expected_output="Deployment procedure and rollout output",
+                context={
+                    "actor_role": "policy_editor",
+                    "approval_status": "missing",
+                    "environment": "production",
+                    "request_channel": "dashboard",
+                },
             ),
         ]
 
@@ -312,6 +332,11 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=[],
                 expected_output="Incident summary for human operators",
+                context={
+                    "actor_role": "incident_commander",
+                    "environment": "production",
+                    "approval_status": "pending",
+                },
             ),
             ExecutionStep(
                 step_id=4,
@@ -325,6 +350,12 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=["publish"],
                 expected_output="Final hotfix rollout approval",
+                context={
+                    "actor_role": "incident_bot",
+                    "environment": "production",
+                    "approval_status": "missing",
+                    "request_channel": "api",
+                },
             ),
             ExecutionStep(
                 step_id=5,
@@ -338,6 +369,12 @@ class Planner:
                 tools=["shell"],
                 side_effects=["deploy"],
                 expected_output="Executed deployment workflow",
+                context={
+                    "actor_role": "incident_bot",
+                    "environment": "production",
+                    "approval_status": "missing",
+                    "request_channel": "api",
+                },
             ),
         ]
 
@@ -356,6 +393,13 @@ class Planner:
                 tools=["web_research"],
                 side_effects=[],
                 expected_output="Runtime history summary with retry counts",
+                context={
+                    "run_id": "support-workflow-2026-03-15-01",
+                    "current_iteration": 2,
+                    "elapsed_seconds": 38,
+                    "recent_tools": ["ticket_sync", "replay_ticket_sync"],
+                    "current_tool": "replay_ticket_sync",
+                },
             ),
             ExecutionStep(
                 step_id=2,
@@ -369,6 +413,14 @@ class Planner:
                 tools=["analysis"],
                 side_effects=[],
                 expected_output="Loop-risk analysis with likely failure pattern",
+                context={
+                    "run_id": "support-workflow-2026-03-15-01",
+                    "current_iteration": 3,
+                    "elapsed_seconds": 74,
+                    "recent_tools": ["ticket_sync", "replay_ticket_sync", "replay_ticket_sync"],
+                    "current_tool": "replay_ticket_sync",
+                    "cumulative_cost_usd": 0.42,
+                },
             ),
             ExecutionStep(
                 step_id=3,
@@ -382,6 +434,14 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=[],
                 expected_output="Operator handoff with bounded remediation options",
+                context={
+                    "run_id": "support-workflow-2026-03-15-01",
+                    "current_iteration": 4,
+                    "elapsed_seconds": 102,
+                    "current_tool": "replay_ticket_sync",
+                    "recent_tools": ["replay_ticket_sync", "replay_ticket_sync"],
+                    "cumulative_cost_usd": 0.58,
+                },
             ),
             ExecutionStep(
                 step_id=4,
@@ -395,6 +455,15 @@ class Planner:
                 tools=["output_generation"],
                 side_effects=["loop"],
                 expected_output="Autonomous retry plan without escalation",
+                context={
+                    "run_id": "support-workflow-2026-03-15-01",
+                    "current_iteration": 5,
+                    "elapsed_seconds": 131,
+                    "current_tool": "replay_ticket_sync",
+                    "recent_tools": ["replay_ticket_sync", "replay_ticket_sync", "replay_ticket_sync"],
+                    "cumulative_cost_usd": 0.71,
+                    "request_channel": "api",
+                },
             ),
             ExecutionStep(
                 step_id=5,
@@ -408,6 +477,15 @@ class Planner:
                 tools=["shell"],
                 side_effects=["loop", "deploy"],
                 expected_output="Repeated recovery commands",
+                context={
+                    "run_id": "support-workflow-2026-03-15-01",
+                    "current_iteration": 6,
+                    "elapsed_seconds": 168,
+                    "current_tool": "replay_ticket_sync",
+                    "recent_tools": ["replay_ticket_sync", "replay_ticket_sync", "replay_ticket_sync"],
+                    "cumulative_cost_usd": 0.93,
+                    "request_channel": "api",
+                },
             ),
         ]
     
