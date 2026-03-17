@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.0] - 2025-03-17
+## [1.0.0] - 2026-03-17
 
 ### Added
 - Customer-facing proof-of-value demo for SignalPulse Stage0 runtime guard
