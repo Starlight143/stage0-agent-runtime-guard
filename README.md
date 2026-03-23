@@ -45,6 +45,22 @@ The demo intentionally compares two modes:
 2. `WITH Stage0`
    The agent still completes safe informational work, but Stage0 denies or defers steps that attempt to publish, deploy, or keep looping without explicit guardrails.
 
+### What this proves
+
+- An external runtime guard can block escalation before it happens
+- Safe work (research, analysis, drafting) still proceeds
+- The agent cannot self-approve sensitive actions
+- High-risk side effects (`publish`, `deploy`) require explicit guardrails
+- Runtime context (approvals, environment, roles) shapes policy decisions
+
+### What this does NOT prove
+
+- This is a demo, not a production integration
+- The agent is simulated; real agents may behave differently
+- Policy decisions depend on your Stage0 configuration
+- This does not cover all possible escalation vectors
+- Live API behavior may differ from simulated mode
+
 ## Customer scenarios included
 
 This repository now includes four scenarios designed to map to common buyer conversations:
@@ -100,6 +116,22 @@ If no API key is configured, the guarded demo falls back to simulated Stage0 res
 python run_demo.py --scenario frameworks
 ```
 
+### Run with buyer-friendly concise output (recommended for demos)
+
+```bash
+python run_demo.py --scenario frameworks --concise --auto
+```
+
+The `--concise` flag shows a clean side-by-side comparison of guarded vs unguarded execution, perfect for sales calls and presentations.
+
+### Run with deterministic simulated output (for recordings/CI)
+
+```bash
+python run_demo.py --scenario frameworks --concise --simulated --auto
+```
+
+The `--simulated` flag forces simulated Stage0 responses even with an API key configured, ensuring deterministic output for recordings and CI.
+
 ### Run a scenario without pause prompts
 
 ```bash
@@ -113,6 +145,16 @@ python run_demo.py --scenario all --auto
 ```
 
 Available scenario keys: `frameworks`, `policy_publish`, `deployment`, `agent_loops`
+
+### Sample outputs
+
+Pre-generated sample outputs are available in `artifacts/`:
+
+- `artifacts/frameworks.txt` - Research Assistant scenario
+- `artifacts/policy_publish.txt` - Content Publisher scenario
+- `artifacts/deployment.txt` - Production Ops scenario
+- `artifacts/agent_loops.txt` - Loop Guard scenario
+- `artifacts/all-scenarios.txt` - All scenarios combined
 
 ## Included reference docs
 
@@ -177,6 +219,8 @@ agent/              Agent planning and execution logic
 demo/               Guarded and unguarded scenario runners
 stage0/             Stage0 API client
 docs/               Buyer-facing contract and scenario references
+tests/              Unit and smoke tests
+artifacts/          Pre-generated sample outputs
 run_demo.py         Multi-scenario demo entrypoint
 ```
 
@@ -187,6 +231,9 @@ This repo has been updated to better support customer conversion and live evalua
 - richer customer-facing demo scenarios
 - a new agent-loop scenario aligned to runtime retry controls
 - non-interactive CLI mode for recordings and scripted demos
+- `--concise` flag for buyer-friendly comparison output
+- pre-generated sample outputs in `artifacts/`
+- smoke tests for all scenarios
 - clearer environment configuration for hosted Stage0
 - stronger buyer-oriented README positioning around `ALLOW / DENY / DEFER`
 

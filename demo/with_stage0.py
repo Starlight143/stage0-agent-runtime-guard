@@ -102,7 +102,9 @@ def main(scenario_key: str = "frameworks"):
     print("ANALYSIS: How Stage0 protected the execution")
     print("=" * 70)
 
-    executed_count = sum(1 for item in result.results if item.success and not item.skipped)
+    executed_count = sum(
+        1 for item in result.results if item.success and not item.skipped
+    )
     denied_count = sum(
         1
         for item in blocked_steps
@@ -147,8 +149,35 @@ Stats:
     )
 
 
+def get_simulated_verdict(side_effects: list[str], tools: list[str]) -> tuple[str, str]:
+    """Compute simulated Stage0 verdict based on side effects and tools.
+
+    This matches the actual Stage0 API behavior:
+    - DENY for 'publish' or 'deploy' side effects
+    - DENY for 'shell' tools
+    - ALLOW for everything else (including 'loop')
+    """
+    side_effects = side_effects or []
+    tools = tools or []
+
+    if "publish" in side_effects or "deploy" in side_effects:
+        return (
+            "DENY",
+            "SIDE_EFFECTS_NEED_GUARDRAILS: External/irreversible side effects declared without machine-readable guardrails in constraints.",
+        )
+    if "shell" in tools:
+        return (
+            "DENY",
+            "SENSITIVE_TOOLS_NEED_CONSTRAINTS: Sensitive tools present without sandbox/allowlist constraints.",
+        )
+    return "ALLOW", "No blocking issues detected."
+
+
 def run_simulated_demo(scenario_key: str):
-    """Run demo with simulated Stage0 responses."""
+    """Run demo with simulated Stage0 responses using actual planner steps."""
+    from agent.planner import Planner
+    from stage0.client import Verdict
+
     scenario = get_scenario(scenario_key)
 
     print("=" * 70)
@@ -159,92 +188,8 @@ def run_simulated_demo(scenario_key: str):
     print("that demonstrate how Stage0 would guard the agent.")
     print()
 
-    if scenario_key == "agent_loops":
-        steps = [
-            {
-                "id": 1,
-                "goal": f"Collect runtime history for: {scenario.goal}",
-                "type": "research",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "Observing existing run state is informational only",
-            },
-            {
-                "id": 2,
-                "goal": f"Analyze retry counts and repeated tool paths for: {scenario.goal}",
-                "type": "analysis",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "Loop analysis is within scope and has no side effects",
-            },
-            {
-                "id": 3,
-                "goal": f"Generate an operator handoff summary for: {scenario.goal}",
-                "type": "output",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "A bounded handoff is safe and reviewable",
-            },
-            {
-                "id": 4,
-                "goal": f"Keep retrying the same workflow for: {scenario.goal}",
-                "type": "synthesis",
-                "side_effects": ["loop"],
-                "simulated_verdict": "DEFER",
-                "simulated_reason": "Loop threshold reached: human confirmation required before extending retry budget",
-            },
-            {
-                "id": 5,
-                "goal": f"Re-run the same sensitive recovery action for: {scenario.goal}",
-                "type": "output",
-                "side_effects": ["loop", "deploy"],
-                "simulated_verdict": "DEFER",
-                "simulated_reason": "Repeated side effects detected: require run_id review and policy escalation before continuing",
-            },
-        ]
-    else:
-        steps = [
-            {
-                "id": 1,
-                "goal": f"Collect source material for: {scenario.goal}",
-                "type": "research",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "Informational research with no side effects",
-            },
-            {
-                "id": 2,
-                "goal": f"Analyze key constraints and trade-offs for: {scenario.goal}",
-                "type": "analysis",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "Informational analysis within scope",
-            },
-            {
-                "id": 3,
-                "goal": f"Generate an internal summary draft for: {scenario.goal}",
-                "type": "output",
-                "side_effects": [],
-                "simulated_verdict": "ALLOW",
-                "simulated_reason": "Informational output, no actionable advice",
-            },
-            {
-                "id": 4,
-                "goal": f"Approve or publish the next customer-facing action for: {scenario.goal}",
-                "type": "synthesis",
-                "side_effects": ["publish"],
-                "simulated_verdict": "DENY",
-                "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'publish' side effect without guardrails",
-            },
-            {
-                "id": 5,
-                "goal": f"Use sensitive tools to change live state for: {scenario.goal}",
-                "type": "output",
-                "side_effects": ["deploy"],
-                "simulated_verdict": "DENY",
-                "simulated_reason": "HIGH severity: SIDE_EFFECTS_NEED_GUARDRAILS - 'deploy' side effect without guardrails",
-            },
-        ]
+    planner = Planner()
+    plan = planner.create_plan(scenario.goal)
 
     print(f"Plan: {scenario.goal}")
     print("-" * 70)
@@ -252,18 +197,18 @@ def run_simulated_demo(scenario_key: str):
 
     executed_outputs: list[str] = []
 
-    for step in steps:
-        print(f"Step {step['id']}: {step['goal']}")
-        print(f"  Type: {step['type']}")
-        print(f"  Side Effects: {step['side_effects'] or 'None'}")
-        print(f"  Stage0 Verdict: {step['simulated_verdict']}")
-        print(f"  Reason: {step['simulated_reason']}")
+    for step in plan.steps:
+        verdict, reason = get_simulated_verdict(step.side_effects, step.tools)
 
-        if step["simulated_verdict"] == "ALLOW":
+        print(f"Step {step.step_id}: {step.goal}")
+        print(f"  Type: {step.step_type.value}")
+        print(f"  Side Effects: {step.side_effects or 'None'}")
+        print(f"  Stage0 Verdict: {verdict}")
+        print(f"  Reason: {reason}")
+
+        if verdict == "ALLOW":
             print("  Action: EXECUTING...")
-            executed_outputs.append(step["goal"])
-        elif step["simulated_verdict"] == "DEFER":
-            print("  Action: SKIPPED (requires human review)")
+            executed_outputs.append(step.goal)
         else:
             print("  Action: SKIPPED (not authorized)")
 
@@ -278,21 +223,22 @@ def run_simulated_demo(scenario_key: str):
         print(f"  - {output}")
 
     print()
-    if scenario_key == "agent_loops":
-        print("Steps Deferred (DEFER):")
-        print("  - Keep retrying the same workflow (loop budget exceeded)")
-        print("  - Re-run the same sensitive recovery action (repeat side effects)")
-    else:
-        print("Steps Denied (DENY):")
-        print("  - Approve or publish the next customer-facing action (publish side effect)")
-        print("  - Use sensitive tools to change live state (deploy side effect)")
+    print("Steps Denied (DENY):")
+    for step in plan.steps:
+        verdict, _ = get_simulated_verdict(step.side_effects, step.tools)
+        if verdict == "DENY":
+            side_effects_str = (
+                ", ".join(step.side_effects) if step.side_effects else "none"
+            )
+            print(
+                f"  - {step.goal} ({side_effects_str} side effect{'s' if len(step.side_effects) > 1 else ''})"
+            )
 
     print()
     print("=" * 70)
     print("RESULT: Agent stayed within the approved task boundary")
     print("=" * 70)
-    print(
-        """
+    print("""
 The Stage0 runtime guard prevented the agent from:
 
 1. Escalating from safe analysis into high-risk action
@@ -305,8 +251,7 @@ Key API behavior:
 - Free tier can still get DENY for high-risk operations
 
 To run with real Stage0 validation, configure STAGE0_API_KEY.
-"""
-    )
+""")
 
 
 if __name__ == "__main__":
